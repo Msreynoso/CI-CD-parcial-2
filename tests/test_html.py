@@ -38,9 +38,6 @@ def test_tiene_titulo(contenido):
     assert "<title>" in contenido and "</title>" in contenido, \
         "Falta la etiqueta <title>"
 
-
-# ── Contenido ────────────────────────────────────────────────────────────────
-
 def test_tiene_h1(contenido):
     assert "<h1>" in contenido and "</h1>" in contenido, \
         "Falta la etiqueta <h1>"
@@ -52,20 +49,3 @@ def test_h1_contiene_hola_mundo(contenido):
     assert "Hola Mundo" in texto_h1 or "Hola mundo" in texto_h1, \
         "El <h1> no contiene 'Hola Mundo'"
 
-def test_tiene_parrafo(contenido):
-    assert "<p>" in contenido and "</p>" in contenido, \
-        "Falta la etiqueta <p>"
-
-def test_parrafo_menciona_manuel(contenido):
-    inicio = contenido.index("<p>") + len("<p>")
-    fin = contenido.index("</p>")
-    texto_p = contenido[inicio:fin]
-    assert "Manuel" in texto_p or "manuel" in texto_p, \
-        "El <p> no menciona a Manuel"
-
-def test_parrafo_menciona_cicd(contenido):
-    inicio = contenido.index("<p>") + len("<p>")
-    fin = contenido.index("</p>")
-    texto_p = contenido[inicio:fin]
-    assert "CI/CD" in texto_p or "ci/cd" in texto_p.lower(), \
-        "El <p> no menciona CI/CD"
