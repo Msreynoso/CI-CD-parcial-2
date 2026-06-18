@@ -64,8 +64,21 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/parcial-cicd:latest
 
-  # ── 3. DEPLOY A VERCEL ────────────────────────────────────────────────────
-  deploy:
+  # ── 3. DEPLOY A RENDER ────────────────────────────────────────────────────
+  deploy_render:
+    name: Deploy a Render
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Disparar redeploy en Render
+        run: |
+          curl -s "${{ secrets.RENDER_DEPLOY_HOOK }}"
+          echo "Deploy a Render disparado"
+
+  # ── 4. DEPLOY A VERCEL ────────────────────────────────────────────────────
+  deploy_vercel:
     name: Deploy a Vercel
     runs-on: ubuntu-latest
     needs: [test, build]
@@ -78,11 +91,11 @@ jobs:
       - name: Deploy a Vercel
         run: npx vercel --token=${{ secrets.VERCEL_TOKEN }} --prod --yes
 
-  # ── 4. NOTIFICACIÓN SLACK — ÉXITO ─────────────────────────────────────────
+  # ── 5. NOTIFICACIÓN SLACK — ÉXITO ─────────────────────────────────────────
   notify_success:
     name: Notificar éxito
     runs-on: ubuntu-latest
-    needs: [test, build, deploy]
+    needs: [test, build, deploy_render, deploy_vercel]
     if: success()
 
     steps:
@@ -106,11 +119,11 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
 
-  # ── 5. NOTIFICACIÓN SLACK — FALLO ─────────────────────────────────────────
+  # ── 6. NOTIFICACIÓN SLACK — FALLO ─────────────────────────────────────────
   notify_failure:
     name: Notificar fallo
     runs-on: ubuntu-latest
-    needs: [test, build, deploy]
+    needs: [test, build, deploy_render, deploy_vercel]
     if: failure()
 
     steps:
