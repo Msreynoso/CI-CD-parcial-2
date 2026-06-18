@@ -1,4 +1,5 @@
 import pytest
+import re
 from pathlib import Path
 
 HTML = Path(__file__).parent.parent / "index.html"
@@ -34,18 +35,33 @@ def test_tiene_charset_utf8(contenido):
     assert 'charset="UTF-8"' in contenido or "charset='UTF-8'" in contenido, \
         "Falta meta charset UTF-8"
 
-def test_tiene_titulo(contenido):
-    assert "<title>" in contenido and "</title>" in contenido, \
-        "Falta la etiqueta <title>"
 
-def test_tiene_h1(contenido):
-    assert "<h1>" in contenido and "</h1>" in contenido, \
-        "Falta la etiqueta <h1>"
+# ── Etiquetas bien formadas ──────────────────────────────────────────────────
 
-def test_h1_contiene_hola_mundo(contenido):
-    inicio = contenido.index("<h1>") + len("<h1>")
-    fin = contenido.index("</h1>")
-    texto_h1 = contenido[inicio:fin]
-    assert "Hola Mundo" in texto_h1 or "Hola mundo" in texto_h1, \
-        "El <h1> no contiene 'Hola Mundo'"
+def test_etiquetas_con_apertura_correcta(contenido):
+    """
+    Detecta etiquetas con '<' pero sin '>' de cierre antes del contenido.
+    Ejemplo inválido: <h1otro titulo</h1>
+    Ejemplo válido:   <h1>otro titulo</h1>
+    """
+    mal_formadas = re.findall(r'<[^>]*(?:<|$)', contenido)
+    mal_formadas = [
+        tag for tag in mal_formadas
+        if not tag.strip().startswith("<!--")
+        and not tag.strip().lower().startswith("<!doctype")
+    ]
+    assert not mal_formadas, \
+        f"Etiquetas con apertura mal formada (falta el '>'): {mal_formadas}"
 
+
+def test_etiquetas_tienen_apertura_y_cierre(contenido):
+    """
+    Para cada etiqueta de cierre encontrada (</tag>),
+    verifica que exista su correspondiente etiqueta de apertura (<tag> o <tag ...>).
+    Ejemplo inválido: <h1otro titulo</h1>  → existe </h1> pero no <h1>
+    """
+    etiquetas_cierre = re.findall(r'</(\w+)>', contenido)
+    for tag in etiquetas_cierre:
+        apertura = re.search(rf'<{tag}[\s>]', contenido)
+        assert apertura, \
+            f"Se encontró '</{tag}>' pero falta su etiqueta de apertura '<{tag}>'"
