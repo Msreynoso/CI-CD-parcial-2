@@ -26,7 +26,31 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Ejecutar tests
-        run: pytest tests/ -v
+        id: pytest
+        run: |
+          pytest tests/ -v 2>&1 | tee pytest_output.txt
+          exit ${PIPESTATUS[0]}
+
+      - name: Guardar resumen de errores
+        if: failure()
+        run: |
+          # Extrae solo las líneas de FAILED y los mensajes de error
+          grep -E "FAILED|AssertionError|Error|assert" pytest_output.txt \
+            | head -20 > pytest_errors.txt || true
+
+      - name: Subir reporte de errores
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-errors
+          path: pytest_errors.txt
+
+      - name: Exportar errores como variable de entorno
+        if: failure()
+        run: |
+          ERRORS=$(grep -E "FAILED|AssertionError|assert" pytest_output.txt \
+            | head -10 | tr '\n' ' | ' || echo "Ver logs para más detalles")
+          echo "PYTEST_ERRORS=$ERRORS" >> $GITHUB_ENV
 
   # ── 2. BUILD Y PUSH DOCKER ────────────────────────────────────────────────
   build:
@@ -102,6 +126,11 @@ jobs:
     if: failure()
 
     steps:
+      - name: Obtener errores de pytest
+        id: get_errors
+        run: |
+          echo "PYTEST_ERRORS=${{ env.PYTEST_ERRORS }}" >> $GITHUB_ENV
+
       - name: Enviar mensaje a Slack
         uses: slackapi/slack-github-action@v1.26.0
         with:
@@ -113,7 +142,21 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "❌ *Pipeline fallido* en `${{ github.repository }}`\n*Rama:* `${{ github.ref_name }}`\n*Commit:* ${{ github.event.head_commit.message }}\n*Autor:* ${{ github.actor }}\n*Ver error:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Ver pipeline>"
+                    "text": "❌ *Pipeline fallido* en `${{ github.repository }}`\n*Rama:* `${{ github.ref_name }}`\n*Commit:* ${{ github.event.head_commit.message }}\n*Autor:* ${{ github.actor }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Tests fallidos:*\n```${{ env.PYTEST_ERRORS }}```"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Ver error completo:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Ver pipeline>"
                   }
                 }
               ]
